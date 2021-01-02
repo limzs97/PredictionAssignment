@@ -1,0 +1,99 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Joel"
+date: "1/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Library and Seed Setting
+
+```{r}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+
+set.seed(1234)
+```
+
+### Data Processing and Exploratory Data Analysis
+
+The relevant data are loaded, while irrelevant variables or missing values are removed.
+
+```{r}
+training <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"), na.strings=c("NA","#DIV/0!", ""))
+testing <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"), na.strings=c("NA","#DIV/0!", ""))
+
+training$classe <- as.factor(training$classe)
+
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+
+training <- training[,colSums(is.na(training)) == 0]
+testing <- testing[,colSums(is.na(testing)) == 0]
+```
+
+A histogram is then plotted in order to provide an overview of the training data, with the outcome variable `classe` on the x-axis.
+
+```{r}
+plot(training$classe, main = "Histogram of Different Classes", xlab = "classe", ylab = "Frequency")
+```
+
+### Data Partitioning for Cross-Validation
+
+Training data are then partitioned into training and testing samples in a 75-25 allocation.
+
+```{r}
+subSamples <- createDataPartition(training$classe, p = 0.75, list = FALSE)
+subSampleTrain <- training[subSamples,]
+subSampleTest <- training[-subSamples,]
+```
+
+### Cross-Validation and Model Selection
+
+The accuracies of the decision tree and random forest algorithms will be compared to decide on the best model.
+
+#### Decision Tree Model
+
+The decision tree algorithm is first run on the training data.
+
+```{r}
+modDT <- rpart(classe ~ ., data = subSampleTrain, method = "class")
+
+fancyRpartPlot(modDT)
+```
+
+We then carry out predictions on the testing data, before obtaining the accuracy of the predictions.
+
+```{r}
+predictDT <- predict(modDT, subSampleTest, type = "class")
+confusionMatrix(predictDT, subSampleTest$classe)
+```
+
+#### Random Forest Model
+
+The random forest algorithm is first run on the training data.
+
+```{r}
+modRF <- randomForest(classe ~ ., data = subSampleTrain, method = "class")
+```
+
+We then carry out predictions on the testing data, before obtaining the accuracy of the predictions.
+
+```{r}
+predictRF <- predict(modRF, subSampleTest, type = "class")
+confusionMatrix(predictRF, subSampleTest$classe)
+```
+
+### Conclusion
+
+The random forest model provided a much higher accuracy of 0.9963 compared to the decision tree model, which only had an accuracy of 0.7455. As such, the random forest model should be chosen. The expected out-of-sample error is estimated to be 0.37%. The model produces the following predictions for the original testing data.
+
+```{r}
+predict(modRF, testing, type = "class")
+```
